@@ -449,6 +449,28 @@ async function loadDefaultCapacitorStorage() {
 }
 
 /**
+ * Resolve the backend base for display: the injected store first, the boot
+ * seam (`storedApiBase`) as fallback. Never throws — unset or unreadable
+ * means `''` (same-origin).
+ * @param {{ get: Function }} storage Injected Preferences-shaped store.
+ * @param {Function} [readImpl] `readApiBase` override for tests.
+ * @returns {Promise<string>} Resolved base, or `''` when unset.
+ */
+export async function resolveBackendBase(storage, readImpl = readApiBase) {
+  try {
+    const stored = await readImpl(storage);
+    if (stored) return stored;
+  } catch {
+    // Fall through to the boot seam.
+  }
+  try {
+    return storedApiBase();
+  } catch {
+    return '';
+  }
+}
+
+/**
  * Mirror the resolved backend base into `localStorage` so the existing boot
  * seam (`storedApiBase`, read by the standalone catalog/scene) picks it up on
  * reload without any change to those call sites.
@@ -482,16 +504,18 @@ export function buildBackendUrlRow(documentRef, currentBase = '') {
   const head = documentRef.createElement('div');
   head.className = 'key-setup-row-head';
   const title = documentRef.createElement('strong');
-  title.textContent = 'Backend URL';
+  title.textContent = t('Backend URL');
   head.append(title);
   const unlocks = documentRef.createElement('p');
   unlocks.className = 'key-setup-unlocks';
-  unlocks.textContent =
-    'The server this app talks to — your home machine or LAN host. Saved on this device only, never bundled.';
+  unlocks.textContent = t(
+    'The server this app talks to — your home machine or LAN host. Saved on this device only, never bundled.',
+  );
   const fields = documentRef.createElement('div');
   fields.className = 'key-setup-fields';
   const input = documentRef.createElement('input');
-  input.type = 'password';
+  input.type = 'text';
+  input.inputMode = 'url';
   input.autocomplete = 'off';
   input.spellcheck = false;
   input.dataset.envVar = API_BASE_STORAGE_KEY;
@@ -529,25 +553,13 @@ export async function initCapacitorBackendSetup({
   writeImpl = writeApiBase,
 } = {}) {
   if (!chip || !root || !storage) return null;
-  let current = '';
-  try {
-    current = await readImpl(storage);
-  } catch {
-    current = '';
-  }
-  if (!current) {
-    try {
-      current = storedApiBase();
-    } catch {
-      current = '';
-    }
-  }
+  const current = await resolveBackendBase(storage, readImpl);
   const chipLabel = chip.querySelector?.('[data-key-setup-chip-label]') || chip;
-  if (chipLabel) chipLabel.textContent = 'SET BACKEND';
-  chip.title = 'Backend URL: the server this app talks to';
+  if (chipLabel) chipLabel.textContent = t('SET BACKEND');
+  chip.title = t('Backend URL: the server this app talks to');
   chip.setAttribute?.(
     'aria-label',
-    'Backend URL: the server this app talks to',
+    t('Backend URL: the server this app talks to'),
   );
   chip.hidden = false;
   const rowsHost = root.querySelector?.('[data-key-setup-rows]');
@@ -605,14 +617,14 @@ export async function initCapacitorBackendSetup({
     const value = String(input?.value ?? '').trim();
     busy = true;
     applyButton?.setAttribute?.('aria-disabled', 'true');
-    say('Saving…');
+    say(t('Saving…'));
     try {
       await writeImpl(storage, value);
       mirrorApiBaseToLocalStorage(resolveApiBase(value));
-      say('Backend saved — reloading against it.');
+      say(t('Backend saved — reloading against it.'));
       reload();
     } catch (error) {
-      say(`Save failed: ${error?.message || error}`);
+      say(t('Save failed: {error}', { error: error?.message || error }));
     } finally {
       busy = false;
       applyButton?.setAttribute?.('aria-disabled', 'false');
@@ -623,7 +635,7 @@ export async function initCapacitorBackendSetup({
   applyButton?.addEventListener?.('click', onApply);
   say(
     defaultStatusText ||
-      'Set the server URL, save, and the app reloads against it.',
+      t('Set the server URL, save, and the app reloads against it.'),
   );
   const dispose = () => {
     open = false;
@@ -735,6 +747,12 @@ export async function initKeySetup({
       updateCloudVoiceAuthControl(auth, oauthBusy);
   };
 
+  // Capacitor merge state: null means a plain web dialog; a string (possibly
+  // '') means the backend URL row rides along with the key rows.
+  let backendBase = null;
+  let backendStorage = null;
+  const reloadPage = reloadImpl ?? (() => globalThis.location?.reload?.());
+
   const render = (nextStatus) => {
     if (disposed) return;
     status = nextStatus;
@@ -747,9 +765,25 @@ export async function initKeySetup({
     // stays reachable this session (and via ?setup=1) to swap or verify keys.
     chip.hidden = status.setCount >= status.total;
     if (!rowsHost) return;
+    // Capture an in-progress backend edit BEFORE clearing: key-save
+    // re-renders must not eat a URL the user typed but hasn't saved yet.
+    const pendingBase =
+      backendBase !== null
+        ? rowsHost.querySelector?.(
+            `input[data-env-var="${API_BASE_STORAGE_KEY}"]`,
+          )?.value
+        : undefined;
     rowsHost.textContent = '';
     for (const key of status.keys || [])
       rowsHost.append(buildRow(documentRef, key));
+    if (backendBase !== null) {
+      rowsHost.append(
+        buildBackendUrlRow(
+          documentRef,
+          typeof pendingBase === 'string' ? pendingBase : backendBase,
+        ),
+      );
+    }
     syncCloudVoiceAuth();
   };
 
@@ -823,7 +857,9 @@ export async function initKeySetup({
         return;
       }
       for (const input of root.querySelectorAll('input[data-env-var]'))
-        input.value = '';
+        // The backend URL is device state, not a server key: it persists
+        // on-device (see onApply) and must survive the post-save clear.
+        if (input.dataset.envVar !== API_BASE_STORAGE_KEY) input.value = '';
       render(payload.status);
       if (googleWasUnset && payload.saved?.includes('GOOGLE_MAPS_API_KEY')) {
         const strip = () => {
@@ -865,14 +901,48 @@ export async function initKeySetup({
   const onApply = async () => {
     if (disposed || busy) return;
     const inputs = [...root.querySelectorAll('input[data-env-var]')];
+    // The backend URL never leaves the device: it is persisted on-device and
+    // excluded from the server POST even if a status payload ever carries it.
+    const backendInput =
+      backendBase !== null
+        ? inputs.find((input) => input.dataset.envVar === API_BASE_STORAGE_KEY)
+        : null;
+    const backendRaw = backendInput
+      ? String(backendInput.value ?? '').trim()
+      : null;
     const updates = collectKeyUpdates(
-      inputs.map((input) => ({
-        envVar: input.dataset.envVar,
-        value: input.value,
-      })),
+      inputs
+        .filter((input) => input.dataset.envVar !== API_BASE_STORAGE_KEY)
+        .map((input) => ({
+          envVar: input.dataset.envVar,
+          value: input.value,
+        })),
     );
-    if (!Object.keys(updates).length) {
+    const backendChanged =
+      backendRaw !== null && resolveApiBase(backendRaw) !== backendBase;
+    if (!Object.keys(updates).length && !backendChanged) {
       say(t('Paste at least one key first.'));
+      return;
+    }
+    if (backendChanged) {
+      // Device state first: a later server restart reloads the page, and the
+      // boot seam must already see the mirrored base when that happens.
+      try {
+        await writeApiBase(backendStorage, backendRaw);
+        mirrorApiBaseToLocalStorage(resolveApiBase(backendRaw));
+        backendBase = resolveApiBase(backendRaw);
+      } catch (error) {
+        say(
+          t('Backend save failed: {error}', {
+            error: error?.message || error,
+          }),
+        );
+        return;
+      }
+    }
+    if (!Object.keys(updates).length) {
+      say(t('Backend saved — reloading against it.'));
+      reloadPage();
       return;
     }
     await submitUpdates(
@@ -1013,6 +1083,15 @@ export async function initKeySetup({
     );
   });
 
+  // Under Capacitor the backend URL rides alongside the keys, so LAN-server
+  // key management keeps working with the device backend visible in the same
+  // dialog. The backend-only screen (status-fetch catch above) is only the
+  // unreachable fallback. Web never takes this branch: no such input exists,
+  // and the Preferences import below never runs there.
+  if (isCapacitorHost(documentRef?.defaultView ?? globalThis.window)) {
+    backendStorage = apiBaseStorage ?? (await loadDefaultCapacitorStorage());
+    backendBase = await resolveBackendBase(backendStorage);
+  }
   render(status);
 
   // Re-entry for a fully-keyed setup, demos, and support: ?setup=1 opens the
