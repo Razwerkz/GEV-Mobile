@@ -3019,5 +3019,13 @@
   "Layers": "Слои",
   "Search": "Поиск",
   "More": "Ещё",
-  "Panels": "Панели"
+  "Panels": "Панели",
+  "Backend URL": "URL бэкенда",
+  "The server this app talks to — your home machine or LAN host. Saved on this device only, never bundled.": "Сервер, с которым говорит это приложение, — ваш домашний компьютер или узел локальной сети. Сохраняется только на этом устройстве и никогда не попадает в сборку.",
+  "SET BACKEND": "ЗАДАТЬ БЭКЕНД",
+  "Backend URL: the server this app talks to": "URL бэкенда: сервер, с которым говорит это приложение",
+  "Backend saved — reloading against it.": "Бэкенд сохранён — перезагружаемся с ним.",
+  "Save failed: {error}": "Не удалось сохранить: {error}",
+  "Set the server URL, save, and the app reloads against it.": "Укажите URL сервера, сохраните — и приложение перезагрузится с ним.",
+  "Backend save failed: {error}": "Не удалось сохранить бэкенд: {error}"
 }

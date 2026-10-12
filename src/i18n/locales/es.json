@@ -2952,5 +2952,13 @@
   "Layers": "Capas",
   "Search": "Buscar",
   "More": "Más",
-  "Panels": "Paneles"
+  "Panels": "Paneles",
+  "Backend URL": "URL del backend",
+  "The server this app talks to — your home machine or LAN host. Saved on this device only, never bundled.": "El servidor con el que habla esta app: tu equipo de casa o host de LAN. Se guarda solo en este dispositivo, nunca se incluye en la compilación.",
+  "SET BACKEND": "CONFIGURAR BACKEND",
+  "Backend URL: the server this app talks to": "URL del backend: el servidor con el que habla esta app",
+  "Backend saved — reloading against it.": "Backend guardado: recargando contra él.",
+  "Save failed: {error}": "Error al guardar: {error}",
+  "Set the server URL, save, and the app reloads against it.": "Configura la URL del servidor, guarda, y la app se recarga contra ella.",
+  "Backend save failed: {error}": "Error al guardar el backend: {error}"
 }
