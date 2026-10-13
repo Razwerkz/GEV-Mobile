@@ -553,10 +553,10 @@ export function buildVaultStatusRow(documentRef, id, set = false) {
   title.textContent = id;
   const state = documentRef.createElement('span');
   state.className = 'key-setup-vault-state';
-  state.textContent = set ? 'SET' : 'NOT SET';
+  state.textContent = set ? t('SET') : t('NOT SET');
   state.title = set
-    ? 'Stored on this device only'
-    : 'Not stored on this device';
+    ? t('Stored on this device only')
+    : t('Not stored on this device');
   head.append(title, state);
   row.append(head);
   return row;
@@ -576,8 +576,9 @@ export function buildVaultStatusSection(documentRef, status) {
   section.dataset.vaultSection = 'true';
   const note = documentRef.createElement('p');
   note.className = 'key-setup-vault-note';
-  note.textContent =
-    'On-device provider keys (presence only — values are never shown).';
+  note.textContent = t(
+    'On-device provider keys (presence only — values are never shown).',
+  );
   section.append(note);
   for (const id of KEY_IDS)
     section.append(buildVaultStatusRow(documentRef, id, status?.[id]?.set));
@@ -586,8 +587,9 @@ export function buildVaultStatusSection(documentRef, status) {
     const banner = documentRef.createElement('p');
     banner.className = 'key-setup-vault-banner';
     banner.dataset.vaultBanner = 'true';
-    banner.textContent =
-      'Device storage is not Keystore-backed yet — keys live in app preferences.';
+    banner.textContent = t(
+      'Device storage is not Keystore-backed yet — keys live in app preferences.',
+    );
     section.append(banner);
   }
   return section;
@@ -675,10 +677,10 @@ export function buildVaultKeyRow(documentRef, id, set = false) {
   const state = documentRef.createElement('span');
   state.className = 'key-setup-vault-state';
   state.dataset.vaultState = 'true';
-  state.textContent = set ? 'SET' : 'NOT SET';
+  state.textContent = set ? t('SET') : t('NOT SET');
   state.title = set
-    ? 'Stored on this device only'
-    : 'Not stored on this device';
+    ? t('Stored on this device only')
+    : t('Not stored on this device');
   head.append(title, state);
   const fields = documentRef.createElement('div');
   fields.className = 'key-setup-fields';
@@ -691,19 +693,21 @@ export function buildVaultKeyRow(documentRef, id, set = false) {
   input.spellcheck = false;
   input.dataset.vaultKey = id;
   input.setAttribute('aria-label', id);
-  input.placeholder = set ? `${id} saved — paste to replace` : `paste ${id}`;
+  input.placeholder = set
+    ? t('{id} saved — paste to replace', { id })
+    : t('paste {id}', { id });
   const save = documentRef.createElement('button');
   save.type = 'button';
   save.className = 'key-setup-vault-save';
   save.dataset.vaultSave = id;
-  save.textContent = 'SAVE';
-  save.title = `Save ${id} on this device only`;
+  save.textContent = t('SAVE');
+  save.title = t('Save {id} on this device only', { id });
   const remove = documentRef.createElement('button');
   remove.type = 'button';
   remove.className = 'key-setup-vault-remove';
   remove.dataset.vaultRemove = id;
-  remove.textContent = 'REMOVE';
-  remove.title = `Remove ${id} from this device`;
+  remove.textContent = t('REMOVE');
+  remove.title = t('Remove {id} from this device', { id });
   remove.hidden = !set;
   fields.append(input, save, remove);
   row.append(head, fields);
@@ -725,8 +729,9 @@ export function buildVaultKeySection(documentRef, status) {
   section.dataset.vaultEditable = 'true';
   const note = documentRef.createElement('p');
   note.className = 'key-setup-vault-note';
-  note.textContent =
-    'On-device provider keys — paste to save on this device only. Values are never shown.';
+  note.textContent = t(
+    'On-device provider keys — paste to save on this device only. Values are never shown.',
+  );
   section.append(note);
   for (const id of KEY_IDS)
     section.append(buildVaultKeyRow(documentRef, id, status?.[id]?.set));
@@ -735,8 +740,9 @@ export function buildVaultKeySection(documentRef, status) {
     const banner = documentRef.createElement('p');
     banner.className = 'key-setup-vault-banner';
     banner.dataset.vaultBanner = 'true';
-    banner.textContent =
-      'Device storage is not Keystore-backed yet — keys live in app preferences.';
+    banner.textContent = t(
+      'Device storage is not Keystore-backed yet — keys live in app preferences.',
+    );
     section.append(banner);
   }
   return section;
@@ -773,10 +779,10 @@ export function wireVaultKeySection({
     row.dataset.set = String(Boolean(set));
     const state = row.querySelector('[data-vault-state]');
     if (state) {
-      state.textContent = set ? 'SET' : 'NOT SET';
+      state.textContent = set ? t('SET') : t('NOT SET');
       state.title = set
-        ? 'Stored on this device only'
-        : 'Not stored on this device';
+        ? t('Stored on this device only')
+        : t('Not stored on this device');
     }
     const input = row.querySelector('input');
     if (input) input.value = '';
@@ -815,26 +821,38 @@ export function wireVaultKeySection({
       })();
     });
   }
+  /** Show inline "Confirm?" text; second click within 3 s removes. */
+  const pendingRemove = new Map();
   for (const remove of section.querySelectorAll('[data-vault-remove]')) {
     const id = remove.dataset?.vaultRemove;
     if (!id) continue;
     remove.addEventListener?.('click', () => {
-      void (async () => {
-        const ok =
-          typeof globalThis.confirm !== 'function' ||
-          globalThis.confirm(`Remove ${id} from this device?`);
-        if (!ok) return;
-        sayIt('Removing…');
-        try {
-          await vault.removeKey(id);
-        } catch (error) {
-          sayIt(`Remove failed: ${error?.message || error}`);
-          return;
-        }
-        syncRow(id, false);
-        sayIt(`${id} removed from this device.`);
-        await changed();
-      })();
+      const wasPending = pendingRemove.get(id);
+      if (wasPending) {
+        clearTimeout(wasPending.timeout);
+        pendingRemove.delete(id);
+        void (async () => {
+          sayIt('Removing…');
+          try {
+            await vault.removeKey(id);
+          } catch (error) {
+            sayIt(`Remove failed: ${error?.message || error}`);
+            return;
+          }
+          syncRow(id, false);
+          sayIt(`${id} removed from this device.`);
+          await changed();
+        })();
+      } else {
+        pendingRemove.set(id, {
+          timeout: setTimeout(() => {
+            pendingRemove.delete(id);
+            remove.textContent = remove.dataset.originalText ?? t('Remove');
+          }, 3000),
+        });
+        remove.dataset.originalText = remove.textContent;
+        remove.textContent = t('Confirm?');
+      }
     });
   }
 }
@@ -1421,12 +1439,23 @@ export async function initKeySetup({
     }
     if (!Array.isArray(envVars) || !envVars.length) return;
     // Removal is destructive and — behind a framing defense that should already
-    // stop it — a clickjack target. A confirm turns a single aligned click into
-    // a deliberate two-step the lure cannot pre-satisfy.
-    const ok =
-      typeof globalThis.confirm !== 'function' ||
-      globalThis.confirm(t('Remove this key from your saved configuration?'));
-    if (!ok) return;
+    // stop it — a clickjack target. An inline "Confirm?" second click turns a
+    // single aligned click into a deliberate two-step the lure cannot pre-satisfy.
+    if (!button.dataset.confirmPending) {
+      button.dataset.confirmPending = 'true';
+      button.dataset.originalText = button.textContent;
+      button.textContent = t('Confirm?');
+      button.dataset.confirmTimeout = setTimeout(() => {
+        delete button.dataset.confirmPending;
+        button.textContent = button.dataset.originalText;
+      }, 3000);
+      return;
+    }
+    // Second click within 3 s — proceed with removal.
+    clearTimeout(Number(button.dataset.confirmTimeout));
+    delete button.dataset.confirmPending;
+    delete button.dataset.confirmTimeout;
+    button.textContent = button.dataset.originalText;
     void submitUpdates(
       Object.fromEntries(envVars.map((name) => [name, null])),
       msg('Removed from {store}. Restarting — this page reloads itself.'),
