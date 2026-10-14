@@ -1150,5 +1150,8 @@ test('standalone selection: web keeps legacy sources, direct selects adapters', 
   assert.equal(flightSnapshot.status, 200);
   assert.deepEqual(flightSnapshot.records, []);
   assert.ok(!calls.some((url) => url.startsWith('/api/')));
-  assert.equal(direct.cctv.getFrameUrl(probeCamera), null);
+  assert.match(
+    direct.cctv.getFrameUrl(probeCamera),
+    /^data:image\/svg\+xml,/,
+  );
 });
