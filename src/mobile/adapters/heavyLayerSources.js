@@ -1,7 +1,11 @@
 import { UPSTREAM_NOT_ALLOWED, asUnavailable } from '../sourcePolicy.js';
 import { createTransitDirectSource } from './transitDirect.js';
 import { createWindDirectSource } from './windDirect.js';
-import { createCctvDirectSource, setCctvCatalog } from './cctvDirect.js';
+import {
+  buildSyntheticCctvSvg,
+  createCctvDirectSource,
+  setCctvCatalog,
+} from './cctvDirect.js';
 import { createOverpassDirectSource } from './overpassDirect.js';
 import { createNoaaTilesDirectSource } from './noaaTilesDirect.js';
 import { createFlightsDirectSource } from './flightsDirect.js';
@@ -12,7 +16,12 @@ import {
   vesselSnapshot,
 } from '../../sources/live/vessels.js';
 import { createCreditGovernor } from '../governors.js';
-import { openSkySnapshot } from '../../sources/live/aircraft.js';
+import {
+  normalizeAircraftTrack,
+  openSkySnapshot,
+  readsbIdentities,
+  readsbSnapshot,
+} from '../../sources/live/aircraft.js';
 import { LiveSourceError } from '../../sources/live/contract.js';
 import { validateWeatherSnapshot } from '../../layers/weather/source.js';
 
@@ -180,12 +189,24 @@ export function createCctvDirectLayerSource({ fetchImpl } = {}) {
       return { cameras: [] };
     },
     /**
-     * Direct upstream frame URL, or null when the camera has none.
+     * Direct upstream frame URL. The legacy contract always yields a string,
+     * so a camera without an upstream resolves to an honest synthetic
+     * placeholder (data: URL, zero network) instead of null.
      * @param {object} camera Layer camera record.
-     * @returns {string|null}
+     * @returns {string}
      */
     getFrameUrl(camera) {
-      return directFrameUrl(camera);
+      return (
+        directFrameUrl(camera) ||
+        `data:image/svg+xml,${encodeURIComponent(
+          buildSyntheticCctvSvg({
+            cameraId: camera?.id ?? 'unknown',
+            label: camera?.name ?? camera?.id ?? 'camera',
+            city: camera?.city ?? '',
+            status: 'NO UPSTREAM CONFIGURED',
+          }),
+        )}`
+      );
     },
     /**
      * Direct upstream media URL for video cameras, else null.
@@ -583,6 +604,107 @@ export function createVesselDirectLayerSource({
             t: Math.floor(Number(sample.at) / 1000),
           })),
         ),
+        complete: false,
+      };
+    },
+  };
+}
+
+/** adsb.lol military feed (public, keyless). */
+const MILITARY_ADSB_URL = 'https://api.adsb.lol/v2/mil';
+
+/** adsb.lol track archive pattern (mirrors the server track proxy). */
+const MILITARY_TRACE_URL = (hex) =>
+  `https://adsb.lol/data/traces/${hex.slice(-2)}/trace_full_${hex}.json`;
+
+/** Valid adsb.lol trace hex (mirrors the server route validation). */
+const MILITARY_HEX_RE = /^[0-9a-f~]{6,7}$/;
+
+/**
+ * Military aircraft layer source backed by direct adsb.lol fetches.
+ * Legacy shape: `{ label, getIdentities, getSnapshot, getTrack }` (same
+ * contract as `createMilitarySource`, normalized through the shared
+ * readsb helpers).
+ * @param {{ fetchImpl?: Function }} transport Caller-owned transport.
+ * @returns {{ label: string, getIdentities: Function, getSnapshot: Function, getTrack: Function }} Legacy military source.
+ */
+export function createMilitaryDirectLayerSource({ fetchImpl } = {}) {
+  const transport = fetchImpl ?? ((...args) => globalThis.fetch(...args));
+  async function readJson(url, { signal } = {}) {
+    signal?.throwIfAborted();
+    const response = await transport(url, { signal });
+    if (!response.ok) {
+      throw new LiveSourceError(
+        'upstream',
+        `Military upstream HTTP ${response.status}`,
+        { status: response.status },
+      );
+    }
+    signal?.throwIfAborted();
+    try {
+      return await response.json();
+    } catch {
+      throw new LiveSourceError('malformed', 'Malformed adsb.lol response');
+    }
+  }
+  return {
+    label: 'Military aircraft',
+    /**
+     * Known military identities (hex codes) for classification.
+     * @param {{}} _query Unused.
+     * @param {{ signal?: AbortSignal }} options Caller signal.
+     * @returns {Promise<string[]>} Hex identities.
+     */
+    async getIdentities(_query = {}, { signal } = {}) {
+      const payload = await readJson(MILITARY_ADSB_URL, { signal });
+      signal?.throwIfAborted();
+      return readsbIdentities(payload);
+    },
+    /**
+     * Current military snapshot in the legacy shape.
+     * @param {{}} _query Unused.
+     * @param {{ signal?: AbortSignal }} options Caller signal.
+     * @returns {Promise<object>} Snapshot with records.
+     */
+    async getSnapshot(_query = {}, { signal } = {}) {
+      const payload = await readJson(MILITARY_ADSB_URL, { signal });
+      signal?.throwIfAborted();
+      const nowMs = Date.now();
+      return {
+        ...readsbSnapshot(payload, {
+          source: 'adsb.lol direct',
+          observedAtMs: nowMs,
+          now: nowMs,
+        }),
+        status: 200,
+      };
+    },
+    /**
+     * Backfill one track from the adsb.lol trace archive.
+     * @param {string} reference ICAO24 hex.
+     * @param {{ signal?: AbortSignal }} options Caller signal.
+     * @returns {Promise<{ records: Array, complete: boolean }>} Track records.
+     */
+    async getTrack(reference, { signal } = {}) {
+      const hex = String(reference ?? '')
+        .trim()
+        .toLowerCase();
+      if (!MILITARY_HEX_RE.test(hex)) {
+        throw new LiveSourceError('malformed', 'Malformed adsb.lol response');
+      }
+      const payload = await readJson(MILITARY_TRACE_URL(hex), { signal });
+      signal?.throwIfAborted();
+      const baseTimeMs = Number.isFinite(payload?.timestamp)
+        ? payload.timestamp * 1000
+        : null;
+      return {
+        records:
+          baseTimeMs == null
+            ? []
+            : normalizeAircraftTrack(payload?.trace, {
+                baseTimeMs,
+                readsb: true,
+              }),
         complete: false,
       };
     },

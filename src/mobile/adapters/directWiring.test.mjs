@@ -321,3 +321,80 @@ test('perimeters direct discards a late snapshot after abort', async () => {
     createFirePerimeterDirectSource({ fetchImpl }).getSnapshot({ signal }),
   );
 });
+
+test('military direct returns normalized adsb.lol rows', async () => {
+  const { createMilitaryDirectLayerSource } = await import('./heavyLayerSources.js');
+  const { calls, fetchImpl } = stubFetch(async () =>
+    jsonResponse({
+      ac: [{ hex: 'ABC123', lat: 48.8, lon: 2.3, flight: 'TEST01 ' }],
+    }),
+  );
+  const source = createMilitaryDirectLayerSource({ fetchImpl });
+  assert.equal(source.label, 'Military aircraft');
+  const snapshot = await source.getSnapshot({});
+  assert.equal(snapshot.records.length, 1);
+  assert.equal(snapshot.records[0].id, 'abc123');
+  assert.match(calls[0].url, /^https:\/\/api\.adsb\.lol\/v2\/mil/);
+});
+
+test('military direct throws legacy malformed on shapeless payloads', async () => {
+  const { createMilitaryDirectLayerSource } = await import('./heavyLayerSources.js');
+  const { fetchImpl } = stubFetch(async () => jsonResponse({ error: 'nope' }));
+  const source = createMilitaryDirectLayerSource({ fetchImpl });
+  await assert.rejects(source.getSnapshot({}), /Malformed adsb\.lol response/);
+});
+
+test('military direct surfaces upstream status honestly', async () => {
+  const { createMilitaryDirectLayerSource } = await import('./heavyLayerSources.js');
+  const { fetchImpl } = stubFetch(async () => jsonResponse({}, 429));
+  const source = createMilitaryDirectLayerSource({ fetchImpl });
+  await assert.rejects(source.getSnapshot({}), (error) => {
+    assert.equal(error.status, 429);
+    return true;
+  });
+});
+
+test('military direct maps trace archives through the legacy track shape', async () => {
+  const { createMilitaryDirectLayerSource } = await import('./heavyLayerSources.js');
+  const { calls, fetchImpl } = stubFetch(async () =>
+    jsonResponse({ timestamp: 1700000000, trace: [[0, 48.8, 2.3, 30000]] }),
+  );
+  const source = createMilitaryDirectLayerSource({ fetchImpl });
+  const track = await source.getTrack('ABC123');
+  assert.equal(track.complete, false);
+  assert.equal(track.records.length, 1);
+  assert.equal(track.records[0].latitude, 48.8);
+  assert.match(
+    calls[0].url,
+    /^https:\/\/adsb\.lol\/data\/traces\/23\/trace_full_abc123\.json/,
+  );
+});
+
+test('military direct rejects bad hex without fetching', async () => {
+  const { createMilitaryDirectLayerSource } = await import('./heavyLayerSources.js');
+  const { calls, fetchImpl } = stubFetch(async () => jsonResponse({}));
+  const source = createMilitaryDirectLayerSource({ fetchImpl });
+  await assert.rejects(source.getTrack('!!!'), /Malformed adsb\.lol response/);
+  assert.equal(calls.length, 0);
+});
+
+test('military direct discards a late snapshot after abort', async () => {
+  const { createMilitaryDirectLayerSource } = await import('./heavyLayerSources.js');
+  await assertDiscardsLateResponse((fetchImpl, signal) =>
+    createMilitaryDirectLayerSource({ fetchImpl }).getSnapshot({}, { signal }),
+  );
+});
+
+test('cctv direct frame URL never returns null (placeholder fallback)', async () => {
+  const { createCctvDirectLayerSource } = await import('./heavyLayerSources.js');
+  const { fetchImpl } = stubFetch(async () => jsonResponse({}));
+  const source = createCctvDirectLayerSource({ fetchImpl });
+  const url = source.getFrameUrl({ id: 'cam-9', name: 'Ninth', city: 'Austin' });
+  assert.equal(typeof url, 'string');
+  assert.match(url, /^data:image\/svg\+xml,/);
+  const upstream = source.getFrameUrl({
+    id: 'cam-1',
+    snapshotUrl: 'https://example.com/snap.jpg',
+  });
+  assert.equal(upstream, 'https://example.com/snap.jpg');
+});

@@ -27,6 +27,7 @@ import { createRouteDirectSource } from '../mobile/adapters/geocodeDirect.js';
 import {
   createCctvDirectLayerSource,
   createFlightsDirectLayerSource,
+  createMilitaryDirectLayerSource,
   createTransitDirectLayerSource,
   createVesselDirectLayerSource,
   createWeatherDirectLayerSource,
@@ -34,6 +35,7 @@ import {
 } from '../mobile/adapters/heavyLayerSources.js';
 import { createTomtomFetchShim } from '../mobile/adapters/meteredDirect.js';
 import { createDailyBudget } from '../mobile/governors.js';
+import { celestrakTleUrl } from '../data/spaceProviderRequests.js';
 import {
   createCycloneDirectSource,
   createFirePerimeterDirectSource,
@@ -102,7 +104,9 @@ export function createStandaloneLayerSources(overrides = {}, options = {}) {
           getClientSecret: openskySecret,
         })
       : createFlightSource(),
-    military: createMilitarySource(),
+    military: useDirect
+      ? createMilitaryDirectLayerSource(transport)
+      : createMilitarySource(),
     vessels: useDirect
       ? createVesselDirectLayerSource({ getKey: aisKey })
       : createVesselSource({
@@ -128,7 +132,12 @@ export function createStandaloneLayerSources(overrides = {}, options = {}) {
       ? createGbfsDirectSource(transport)
       : createBikeshareSource(transport),
     installations: createInstallationSource({ mapTiles }),
-    satellites: createSatelliteSource(),
+    satellites: useDirect
+      ? createSatelliteSource({
+          ...transport,
+          groupUrl: (group) => celestrakTleUrl(group).href,
+        })
+      : createSatelliteSource(),
     launches: createLaunchSource(),
     alpr: createAlprTileSource(),
     firms: useDirect
