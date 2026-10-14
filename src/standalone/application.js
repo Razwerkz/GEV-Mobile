@@ -77,6 +77,7 @@ export function createStandaloneApplication({
         sources,
         streetLevelProviders,
         getKey: createApplicationKeyReader(),
+        mapillaryToken: sceneKeys.mapillaryToken,
         nepalBoundaryResolver: (signal) =>
           scene.operations.annotationResolver.resolveRegionRingForQuery(
             'Nepal',
