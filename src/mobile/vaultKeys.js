@@ -86,3 +86,40 @@ export function createApplicationKeyReader() {
       }),
   });
 }
+
+/**
+ * Resolve map-provider keys for scene bootstrap: on-device without a
+ * backend, vault tokens win over build-time defines so photorealistic 3D
+ * needs no baked keys; everywhere else (and on any failure) the build
+ * values stand. Pure apart from the vault reads.
+ * @param {{ getVaultKey?: Function|null, googleApiKey?: string, cesiumToken?: string, direct?: boolean }} options Vault reader, build values, direct-mode flag.
+ * @returns {Promise<{ googleApiKey: string, cesiumToken: string }>} Resolved credentials.
+ */
+export async function resolveSceneKeys({
+  getVaultKey = null,
+  googleApiKey = '',
+  cesiumToken = '',
+  direct = false,
+} = {}) {
+  if (!direct || typeof getVaultKey !== 'function') {
+    return { googleApiKey, cesiumToken };
+  }
+  try {
+    const [vaultGoogle, vaultCesium] = await Promise.all([
+      getVaultKey('GOOGLE_MAPS_API_KEY'),
+      getVaultKey('CESIUM_ION_TOKEN'),
+    ]);
+    return {
+      googleApiKey:
+        typeof vaultGoogle === 'string' && vaultGoogle
+          ? vaultGoogle
+          : googleApiKey,
+      cesiumToken:
+        typeof vaultCesium === 'string' && vaultCesium
+          ? vaultCesium
+          : cesiumToken,
+    };
+  } catch {
+    return { googleApiKey, cesiumToken };
+  }
+}

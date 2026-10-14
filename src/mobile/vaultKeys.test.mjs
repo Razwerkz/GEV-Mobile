@@ -75,3 +75,57 @@ test('application key reader is a fail-closed function', async () => {
   const getKey = createApplicationKeyReader();
   assert.equal(typeof getKey, 'function');
 });
+
+test('resolveSceneKeys prefers vault tokens only when direct', async () => {
+  const { resolveSceneKeys } = await import('./vaultKeys.js');
+  const getVaultKey = async (id) =>
+    id === 'GOOGLE_MAPS_API_KEY' ? 'vault-google'
+    : id === 'CESIUM_ION_TOKEN' ? 'vault-cesium'
+    : null;
+  assert.deepEqual(
+    await resolveSceneKeys({
+      getVaultKey,
+      googleApiKey: 'build-google',
+      cesiumToken: 'build-cesium',
+      direct: true,
+    }),
+    { googleApiKey: 'vault-google', cesiumToken: 'vault-cesium' },
+  );
+  assert.deepEqual(
+    await resolveSceneKeys({
+      getVaultKey,
+      googleApiKey: 'build-google',
+      cesiumToken: 'build-cesium',
+      direct: false,
+    }),
+    { googleApiKey: 'build-google', cesiumToken: 'build-cesium' },
+  );
+});
+
+test('resolveSceneKeys falls back per key and on failure', async () => {
+  const { resolveSceneKeys } = await import('./vaultKeys.js');
+  assert.deepEqual(
+    await resolveSceneKeys({
+      getVaultKey: async () => null,
+      googleApiKey: 'build-google',
+      cesiumToken: 'build-cesium',
+      direct: true,
+    }),
+    { googleApiKey: 'build-google', cesiumToken: 'build-cesium' },
+  );
+  assert.deepEqual(
+    await resolveSceneKeys({
+      getVaultKey: async () => {
+        throw new Error('nope');
+      },
+      googleApiKey: 'build-google',
+      cesiumToken: 'build-cesium',
+      direct: true,
+    }),
+    { googleApiKey: 'build-google', cesiumToken: 'build-cesium' },
+  );
+  assert.deepEqual(await resolveSceneKeys({}), {
+    googleApiKey: '',
+    cesiumToken: '',
+  });
+});

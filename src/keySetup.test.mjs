@@ -867,6 +867,7 @@ test('readVaultSnapshot reports presence fail-closed', async () => {
         'OPENSKY_CLIENT_ID',
         'OPENSKY_CLIENT_SECRET',
         'GOOGLE_MAPS_API_KEY',
+        'CESIUM_ION_TOKEN',
       ].map((id) => [id, { set: false, backend: 'insecure' }]),
     ),
   );
