@@ -39,6 +39,7 @@ test('KEY_IDS lists every on-device provider key in contract order', () => {
     'OPENSKY_CLIENT_SECRET',
     'GOOGLE_MAPS_API_KEY',
     'CESIUM_ION_TOKEN',
+    'MAPILLARY_CLIENT_TOKEN',
   ]);
 });
 

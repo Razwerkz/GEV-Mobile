@@ -81,6 +81,7 @@ test('resolveSceneKeys prefers vault tokens only when direct', async () => {
   const getVaultKey = async (id) =>
     id === 'GOOGLE_MAPS_API_KEY' ? 'vault-google'
     : id === 'CESIUM_ION_TOKEN' ? 'vault-cesium'
+    : id === 'MAPILLARY_CLIENT_TOKEN' ? 'vault-mapillary'
     : null;
   assert.deepEqual(
     await resolveSceneKeys({
@@ -89,7 +90,11 @@ test('resolveSceneKeys prefers vault tokens only when direct', async () => {
       cesiumToken: 'build-cesium',
       direct: true,
     }),
-    { googleApiKey: 'vault-google', cesiumToken: 'vault-cesium' },
+    {
+      googleApiKey: 'vault-google',
+      cesiumToken: 'vault-cesium',
+      mapillaryToken: 'vault-mapillary',
+    },
   );
   assert.deepEqual(
     await resolveSceneKeys({
@@ -98,7 +103,11 @@ test('resolveSceneKeys prefers vault tokens only when direct', async () => {
       cesiumToken: 'build-cesium',
       direct: false,
     }),
-    { googleApiKey: 'build-google', cesiumToken: 'build-cesium' },
+    {
+      googleApiKey: 'build-google',
+      cesiumToken: 'build-cesium',
+      mapillaryToken: '',
+    },
   );
 });
 
@@ -111,7 +120,11 @@ test('resolveSceneKeys falls back per key and on failure', async () => {
       cesiumToken: 'build-cesium',
       direct: true,
     }),
-    { googleApiKey: 'build-google', cesiumToken: 'build-cesium' },
+    {
+      googleApiKey: 'build-google',
+      cesiumToken: 'build-cesium',
+      mapillaryToken: '',
+    },
   );
   assert.deepEqual(
     await resolveSceneKeys({
@@ -122,10 +135,15 @@ test('resolveSceneKeys falls back per key and on failure', async () => {
       cesiumToken: 'build-cesium',
       direct: true,
     }),
-    { googleApiKey: 'build-google', cesiumToken: 'build-cesium' },
+    {
+      googleApiKey: 'build-google',
+      cesiumToken: 'build-cesium',
+      mapillaryToken: '',
+    },
   );
   assert.deepEqual(await resolveSceneKeys({}), {
     googleApiKey: '',
     cesiumToken: '',
+    mapillaryToken: '',
   });
 });

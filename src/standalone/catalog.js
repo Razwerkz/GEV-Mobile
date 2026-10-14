@@ -18,6 +18,7 @@ export function createStandaloneCatalog({
   fetchImpl,
   getKey,
   direct,
+  mapillaryToken,
 } = {}) {
   const useDirect = direct ?? shouldUseDirect();
   // On-device without a backend and no explicit transport, every source
@@ -44,6 +45,7 @@ export function createStandaloneCatalog({
       fetchImpl: deviceFetch,
       getKey,
       direct: useDirect,
+      mapillaryToken,
     }),
     streetLevelProviders,
     signal,

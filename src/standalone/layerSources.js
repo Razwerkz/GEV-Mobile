@@ -48,7 +48,12 @@ export { createReferenceSources as createStandaloneReferenceSources } from '../s
 export function createStandaloneLayerSources(overrides = {}, options = {}) {
   if (!overrides || typeof overrides !== 'object' || Array.isArray(overrides))
     throw new TypeError('Source overrides must be an object');
-  const { fetchImpl, getKey, direct } = options ?? {};
+  const {
+    fetchImpl,
+    getKey,
+    direct,
+    mapillaryToken: mapillaryTokenOption,
+  } = options ?? {};
   // On-device without a backend, keyless sources fetch upstreams directly;
   // everywhere else the legacy same-origin proxies are built untouched.
   const useDirect = direct ?? shouldUseDirect();
@@ -57,7 +62,8 @@ export function createStandaloneLayerSources(overrides = {}, options = {}) {
   const deviceFetch =
     fetchImpl ?? (useDirect ? createDeviceFetch() : undefined);
   const transport = deviceFetch ? { fetchImpl: deviceFetch } : {};
-  const mapillaryToken = import.meta.env?.MAPILLARY_CLIENT_TOKEN || '';
+  const mapillaryToken =
+    mapillaryTokenOption || import.meta.env?.MAPILLARY_CLIENT_TOKEN || '';
   const firmsKey =
     typeof getKey === 'function' ? () => getKey('FIRMS_MAP_KEY') : undefined;
   const openskyId =

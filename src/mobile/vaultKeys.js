@@ -90,36 +90,35 @@ export function createApplicationKeyReader() {
 /**
  * Resolve map-provider keys for scene bootstrap: on-device without a
  * backend, vault tokens win over build-time defines so photorealistic 3D
- * needs no baked keys; everywhere else (and on any failure) the build
- * values stand. Pure apart from the vault reads.
- * @param {{ getVaultKey?: Function|null, googleApiKey?: string, cesiumToken?: string, direct?: boolean }} options Vault reader, build values, direct-mode flag.
- * @returns {Promise<{ googleApiKey: string, cesiumToken: string }>} Resolved credentials.
+ * and street-level photos need no baked keys; everywhere else (and on any
+ * failure) the build values stand. Pure apart from the vault reads.
+ * @param {{ getVaultKey?: Function|null, googleApiKey?: string, cesiumToken?: string, mapillaryToken?: string, direct?: boolean }} options Vault reader, build values, direct-mode flag.
+ * @returns {Promise<{ googleApiKey: string, cesiumToken: string, mapillaryToken: string }>} Resolved credentials.
  */
 export async function resolveSceneKeys({
   getVaultKey = null,
   googleApiKey = '',
   cesiumToken = '',
+  mapillaryToken = '',
   direct = false,
 } = {}) {
   if (!direct || typeof getVaultKey !== 'function') {
-    return { googleApiKey, cesiumToken };
+    return { googleApiKey, cesiumToken, mapillaryToken };
   }
   try {
-    const [vaultGoogle, vaultCesium] = await Promise.all([
+    const [vaultGoogle, vaultCesium, vaultMapillary] = await Promise.all([
       getVaultKey('GOOGLE_MAPS_API_KEY'),
       getVaultKey('CESIUM_ION_TOKEN'),
+      getVaultKey('MAPILLARY_CLIENT_TOKEN'),
     ]);
+    const pick = (vaultValue, buildValue) =>
+      typeof vaultValue === 'string' && vaultValue ? vaultValue : buildValue;
     return {
-      googleApiKey:
-        typeof vaultGoogle === 'string' && vaultGoogle
-          ? vaultGoogle
-          : googleApiKey,
-      cesiumToken:
-        typeof vaultCesium === 'string' && vaultCesium
-          ? vaultCesium
-          : cesiumToken,
+      googleApiKey: pick(vaultGoogle, googleApiKey),
+      cesiumToken: pick(vaultCesium, cesiumToken),
+      mapillaryToken: pick(vaultMapillary, mapillaryToken),
     };
   } catch {
-    return { googleApiKey, cesiumToken };
+    return { googleApiKey, cesiumToken, mapillaryToken };
   }
 }
