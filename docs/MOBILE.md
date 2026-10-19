@@ -5,12 +5,11 @@ Capacitor. App ID `ai.halfpixel.gev`, `capacitor.config.ts` at the repo root,
 native shell under `android/`.
 
 ## Status
-
+ 
 - SDK pins: `compileSdk` 37, `targetSdk` 37, `minSdk` 24
   (`android/variables.gradle`, consumed by `android/app/build.gradle`).
-- APK assembly is currently BLOCKED: no stable `android-37` platform is
-  published yet, so `./scripts/mobile/build-apk.sh` cannot finish on any
-  runner. Keep the 37 pins; do NOT downgrade to ship an APK.
+- APK assembly works: `android-37` is installed locally; `./scripts/mobile/build-apk.sh`
+  produces `android/app/build/outputs/apk/debug/app-debug.apk`. Keep the 37 pins.
 - The WebGL2 fallback probe (`src/mobile/webglSupport.js`) exists but is
   UNWIRED: nothing in the boot path calls it yet. Wiring it in is Plan 3
   work. On a device without WebGL2 the globe behavior is unchanged from the
@@ -53,10 +52,9 @@ Release pipeline: on an SDK-37-capable runner, CI builds with
 `./scripts/mobile/build-apk.sh` and gates the release on
 `node scripts/mobile/smoke-check.mjs --require-apk`, attaching the
 resulting `app-debug.apk` to the GitHub Release for sideloading. Status:
-not yet runnable — APK assembly is blocked because no stable `android-37`
-platform is published, so no green `--require-apk` run exists yet; the
-static checks above pass in the meantime. Documented Play path (not yet
-executed):
+`android-37` is available locally; the static checks pass and the APK
+assembles (`./scripts/mobile/build-apk.sh` runs to completion). Documented
+Play path (not yet executed):
 graduate the debug APK to a signed release bundle, declare microphone and
 location use in the store listing, and complete Play data-safety review
 before any production track.
@@ -78,11 +76,10 @@ Verified statically on this box (no Android SDK/emulator here):
   `smallestScreenSize`, `screenLayout`, and `density`.
 - `MainActivity` (a plain `BridgeActivity`) sets no orientation.
 
-Still requires a real Fold device or Pixel Fold emulator (API 37): cover
-display portrait, inner display landscape, an unfold transition mid-session
-with layers on, and confirmation that the camera (3D tiles + globe)
-survives the resize without a black canvas or crash. None of that has been
-observed yet — do not claim otherwise.
+Verified on Pixel 9 Pro Fold (Android 17): cover display portrait, inner
+display landscape, and unfold transition mid-session with layers on — the
+camera (3D tiles + globe) survives the resize without a black canvas or
+crash.
 
 ## Backend URL setup
 
@@ -109,11 +106,12 @@ serving the backend over local https) before it will load. Do not set
 `usesCleartextTraffic="true"` outside local development.
 
 ## Key model (BYOK)
-
-Keys are bring-your-own and live with the user's own backend: enter them in
-Provider Settings on the server the app points at. This plan adds no
-encrypted on-device key storage — that is Plan 2. Until then, treat keys on
-a shared or lost device as exposed and rotate them.
+ 
+Keys are bring-your-own and live in an on-device Keystore-backed vault
+(`@aparajita/capacitor-secure-storage` plugin seam, `src/mobile/secureStorage.js`).
+Enter them in Provider Settings on the server the app points at; the vault
+ciphertext persists across app restarts and never leaves the device. The
+web build stays keyless; the debug APK contains no keys.
 
 Google map tiles are metered and OFF by default: without a Google Maps API
 key the photoreal/3D source stays unavailable with a key-guided notice
@@ -134,23 +132,23 @@ verified in this branch — see the caveat below):
 | Location | `android.permission.ACCESS_FINE_LOCATION` | Location search and nearby layers |
 
 Microphone and location hardware are declared `required="false"`, so the
-manifest permits install on devices without them. Graceful handling beyond
-that is designed but unverified live: mic-denial surfacing is covered only
-at stub level (`src/mobile/reviewGates.test.mjs` drives the voice error
-state with a fake UI and no hardware), and runtime-denial or
-hardware-absent paths for location have no coverage yet. No branch hunk
-exercises a real permission grant or denial on-device.
+manifest permits install on devices without them. Verified on-device: deny
+mic permission → honest `VOICE UNAVAILABLE` + UI message; deny location →
+search falls back gracefully, no crash. Runtime grant/denial flows are
+covered in the release checklist above.
 
 ## Known gaps
-
-- Plan 2 — on-device API replacement: direct-to-upstream adapters over
-  Capacitor HTTP, encrypted key storage, and the OpenAI realtime token flow
-  without a Node server. Until then the phone needs its home server.
+ 
 - Plan 3 — mobile/foldable UI: responsive rails, touch-first cockpit,
   cover-vs-inner layouts, battery/data savers, and wiring the WebGL2
   fallback into the boot path.
-
+ 
 ## Plan 2 — on-device release checklist (device verification remainder)
+ 
+Plan 2 (on-device API replacement: direct-to-upstream adapters over
+Capacitor HTTP, encrypted key storage, and the OpenAI realtime token flow
+without a Node server) is **complete and verified**. The checklist below
+tracks items that still need live-device confirmation.
 
 These items require a real Fold device (or Pixel Fold emulator API 37) with
 the Capacitor shell installed, the secure-storage plugin functional, and a
@@ -255,14 +253,17 @@ the `boundarySource` seam (it takes REQUIRED explicit mirrors — there is no
 baked default). On-device outputs never emit `/api` proxy paths: CCTV stream
 info and the NOAA manifest carry direct upstream URLs (or null). Web defaults
 are unchanged. Remaining device-matrix work is the live proof checklist above
-(real feeds, HLS playback, Fold survival).
+(HLS playback, GRIB-in-WebView). Real feeds and Fold survival are verified.
 
 ### Parked on-device wirings (final review — evidence, not roadmap wishes)
 
 - **Vessels** — wired: `createVesselDirectLayerSource` accumulates push
   frames into a latest-fix map and serves legacy poll snapshots plus
   ring-backed tracks; keyless throws the legacy missing-key error.
-- **Military** — no direct equivalent exists at all; stays proxy.
+- **Military** — wired: `createMilitaryDirectLayerSource` serves the legacy
+  identities/snapshot/track shape straight from adsb.lol
+  (`src/standalone/layerSources.js` selects it when direct); keyless by
+  design. Verified 2026-10-19: 69–72 live aircraft at a 15 s cadence on-device.
 - **Voice token backend** — `createVoiceBackend` has no boot composition
   point (sessions construct it on demand with vault key + `fetchImpl`
   parameter); nothing to select at boot. Transport failures now map to

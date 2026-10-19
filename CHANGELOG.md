@@ -397,17 +397,19 @@
   builds the web bundle, syncs it into `android/` and assembles
   `app-debug.apk`; `scripts/mobile/smoke-check.mjs` asserts the static
   surface (bundled `dist/index.html`, SDK pins, `INTERNET` permission) and
-  requires the APK with `--require-apk` on an SDK-37-capable runner. APK
-  assembly is currently blocked — no stable `android-37` platform is
-  published yet, so the 37 pins stay. The manifest sets no orientation or
-  aspect locks and the launcher activity handles unfold resizes in place via
-  `configChanges`. Provider Settings gains a Backend URL row persisted through
-  `src/mobile/keyStore.js` (Preferences plugin on-device, `localStorage`
-  fallback, `https://host` only, never logged); boot resolves the override
-  through `src/mobile/runtimeConfig.js`. Keys stay bring-your-own against the
-  user's own backend — no encrypted on-device key storage yet. The WebGL2
-  fallback probe (`src/mobile/webglSupport.js`) is tested but unwired until
-  the mobile UI pass. See `docs/MOBILE.md`.
+  requires the APK with `--require-apk` on an SDK-37-capable runner.
+  `android-37` is available locally and the APK assembles. The manifest sets
+  no orientation or aspect locks and the launcher activity handles unfold
+  resizes in place via `configChanges`. Provider Settings gains a Backend URL
+  row persisted through `src/mobile/keyStore.js` (Preferences plugin on-device,
+  `localStorage` fallback, `https://host` only, never logged); boot resolves
+  the override through `src/mobile/runtimeConfig.js`. Keys are bring-your-own
+  and live in an on-device Keystore-backed vault
+  (`@aparajita/capacitor-secure-storage` plugin seam,
+  `src/mobile/secureStorage.js`); the vault ciphertext persists across app
+  restarts and never leaves the device. The WebGL2 fallback probe
+  (`src/mobile/webglSupport.js`) is tested but unwired until the mobile UI
+  pass. See `docs/MOBILE.md`.
 - Street Level: Google Street View is the second provider. On the Google 3D
   map (Google's terms keep it off other maps), light its chip (off by
   default: every panorama is billed to the Google Maps key, which needs the
