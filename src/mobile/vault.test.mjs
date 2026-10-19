@@ -286,6 +286,55 @@ test('loadSecureStore refuses off-device and survives plugin failures', async ()
   assert.equal(storageBackend(secure), 'secure');
 });
 
+test('native probe round-trips the plugin string API and reports secure', async () => {
+  const { loadSecureStore } = await import('./secureStorage.js');
+  // Strict stub: mirrors the published 8.x contract where `get`/`getItem`
+  // take a string key. Anything else throws, so an object-shaped probe call
+  // fails the load and would surface here.
+  const calls = [];
+  const requireStringKey = (method) => (key) => {
+    if (typeof key !== 'string')
+      throw new TypeError(`${method} needs a string key`);
+    calls.push(`${method}:${key}`);
+  };
+  const values = new Map();
+  const plugin = {
+    get: async (key) => {
+      requireStringKey('get')(key);
+      return values.has(key) ? values.get(key) : null;
+    },
+    getItem: async (key) => {
+      requireStringKey('getItem')(key);
+      return values.has(key) ? values.get(key) : null;
+    },
+    setItem: async (key, value) => {
+      requireStringKey('setItem')(key);
+      values.set(key, String(value));
+    },
+    removeItem: async (key) => {
+      requireStringKey('removeItem')(key);
+      values.delete(key);
+    },
+    // The real plugin exposes this, but it resolves from JS state alone and
+    // never reaches native — it must not be accepted as the liveness probe.
+    getKeyPrefix: async () => 'capacitor-storage_',
+  };
+  const store = await loadSecureStore({
+    isNative: true,
+    importPlugin: async () => ({ SecureStorage: plugin }),
+  });
+  assert.equal(storageBackend(store), 'secure');
+  assert.deepEqual(calls, ['getItem:__secure_storage_probe__']);
+
+  const prefixOnly = await loadSecureStore({
+    isNative: true,
+    importPlugin: async () => ({
+      SecureStorage: { getKeyPrefix: async () => 'capacitor-storage_' },
+    }),
+  });
+  assert.equal(prefixOnly, null);
+});
+
 test('loadVaultStorage prefers secure and falls back insecure-flagged', async () => {
   const { loadVaultStorage } = await import('./secureStorage.js');
   const preferences = createStubStorage();
