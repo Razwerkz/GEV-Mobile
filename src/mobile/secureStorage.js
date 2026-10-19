@@ -150,14 +150,14 @@ export async function loadSecureStore({
     // Probe that the native implementation answers with a real round-trip
     // (an unsynced plugin rejects here). Use a benign key that is never
     // user-visible; values are never read — presence + latency is enough.
-    // Support both the modern `get` API and the legacy `getKeyPrefix` API.
-    if (typeof plugin.get === 'function') {
-      await plugin.get({ key: '__secure_storage_probe__' });
-    } else if (typeof plugin.getKeyPrefix === 'function') {
-      await plugin.getKeyPrefix();
-    } else {
-      throw new Error('Secure storage plugin missing get/getKeyPrefix');
+    // The probe uses the string API the wrapper itself wraps
+    // (`getItem(key)` -> null for a missing key). `getKeyPrefix()` is
+    // deliberately not used as the probe: it resolves from JS state alone
+    // and never reaches native, so it cannot detect an unsynced plugin.
+    if (typeof plugin.getItem !== 'function') {
+      throw new Error('Secure storage plugin missing getItem');
     }
+    await plugin.getItem('__secure_storage_probe__');
     return secureStoreFromPlugin(plugin);
   } catch {
     return null;
