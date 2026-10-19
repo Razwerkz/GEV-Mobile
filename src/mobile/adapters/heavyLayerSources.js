@@ -1,4 +1,5 @@
 import { UPSTREAM_NOT_ALLOWED, asUnavailable } from '../sourcePolicy.js';
+import { msg } from '../../i18n/index.js';
 import { createTransitDirectSource } from './transitDirect.js';
 import { createWindDirectSource } from './windDirect.js';
 import {
@@ -203,7 +204,7 @@ export function createCctvDirectLayerSource({ fetchImpl } = {}) {
             cameraId: camera?.id ?? 'unknown',
             label: camera?.name ?? camera?.id ?? 'camera',
             city: camera?.city ?? '',
-            status: 'NO UPSTREAM CONFIGURED',
+            status: msg('NO UPSTREAM CONFIGURED'),
           }),
         )}`
       );
@@ -343,7 +344,7 @@ export function createFlightsDirectLayerSource({
   });
   const adsbdb = createAdsbdbDirectSource(fetchImpl ? { fetchImpl } : {});
   return {
-    label: 'Flights',
+    label: msg('Flights'),
     /**
      * Read the current airborne snapshot around an optional anchor.
      * @param {{ latitude?: number, longitude?: number }} query View anchor.
@@ -527,7 +528,7 @@ export function createVesselDirectLayerSource({
     return rows;
   }
   return {
-    label: 'Vessels',
+    label: msg('Vessels'),
     /**
      * Poll the accumulated live map (same shape as the proxy snapshot).
      * @param {{ maxRows?: number, area?: { lat: number, lon: number, radiusKm: number } }} query Row cap + optional area.
@@ -648,7 +649,7 @@ export function createMilitaryDirectLayerSource({ fetchImpl } = {}) {
     }
   }
   return {
-    label: 'Military aircraft',
+    label: msg('Military aircraft'),
     /**
      * Known military identities (hex codes) for classification.
      * @param {{}} _query Unused.
