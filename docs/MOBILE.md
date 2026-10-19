@@ -178,6 +178,10 @@ each line has been observed on-device.
   Named gate: `storageBackend()` must report `'secure'` AND a vault
   write/read round-trip must succeed through the secure backend (load
   success alone does not pass).
+  Verified 2026-10-19: the strict string-API probe selects the Keystore
+  backend; all 8 keys persist as ciphertext in the plugin's
+  `WSSecureStorageSharedPreferences.xml`; no Preferences file exists; the
+  vault-read Google key boots 3D Tiles after reinstall.
 
 - **OpenSky credit governor with real credentials** — `flightsDirect` uses the
   vault `OPENSKY_CLIENT_ID/SECRET` (or anon); adaptive polling 30/90/300 s
@@ -186,6 +190,14 @@ each line has been observed on-device.
 - **CelesTrak TLE CORS bypass** — `createNativeFetch` fetches
   `celestrak.org/NORAD/elements/gp.php` via `CapacitorHttp`; satellite layer
   populates without the server proxy.
+  Verified 2026-10-19: 827 core satellites live on-device; dense starlink
+  honors CelesTrak's 2-hour re-download window (403 "GP data has not
+  updated" engages the dense-failure path and retries on the next rebuild).
+
+- **Military direct (adsb.lol)** — `createMilitaryDirectLayerSource` serves
+  identities/snapshots/tracks straight from `api.adsb.lol`, normalized
+  through the shared readsb helpers.
+  Verified 2026-10-19: 69–72 live aircraft at a 15 s cadence on-device.
 
 - **Transit direct (protobuf decode)** — `createTransitDirectSource` decodes
   GTFS-RT `VehiclePositions` via `pbf`; live feed cards populate; no proxy.
@@ -197,6 +209,16 @@ each line has been observed on-device.
 - **CCTV direct (HLS leases + TxDOT decode)** — `createCctvDirectSource`
   streams registered camera frames/media; HLS leases create/access/expire in
   15 s; TxDOT base64-JSON payloads decode to JPEG; SSRF guard rejects non-catalog URLs.
+  Verified 2026-10-19: `CCTV ON` renders live frames on-device; cameras with
+  no upstream frame URL paint the synthetic placeholder instead of tripping a
+  null-URL crash in the projection/playback paths.
+
+- **ALPR direct (DeFlock vector tiles)** — `createAlprTileSource` decodes
+  `tiles.dontgetflocked.com` MVT client-side (z9–z12 detail gate, 16-tile
+  cap); markers render only when the view actually contains cameras.
+  Verified 2026-10-19: 24 nearby / 11 markers on screen over a downtown-Austin
+  cluster; a "0 on screen" pose is the designed honest state (cameras inside
+  the 2×range box but outside the phone's narrow FOV), not a load failure.
 
 - **Overpass direct** — `createOverpassDirectSource` queries operator mirrors
   (REQUIRED explicit configuration, none baked in) with client-side QL
