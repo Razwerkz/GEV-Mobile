@@ -48,3 +48,17 @@ test('launcher activity declares configChanges with fold tokens', () => {
     assert.ok(tokens.includes(token), `configChanges handles ${token}`);
   }
 });
+
+test('launcher adaptive icon uses the dark theme background (#0a0a0f)', () => {
+  const resRoot = path.resolve(path.dirname(manifestPath), 'res');
+  const valuesBg = readFileSync(
+    path.join(resRoot, 'values', 'ic_launcher_background.xml'),
+    'utf8',
+  );
+  const drawableBg = readFileSync(
+    path.join(resRoot, 'drawable', 'ic_launcher_background.xml'),
+    'utf8',
+  );
+  assert.match(valuesBg, /#0a0a0f/i);
+  assert.match(drawableBg, /#0a0a0f/i);
+});

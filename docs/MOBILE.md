@@ -76,10 +76,12 @@ Verified statically on this box (no Android SDK/emulator here):
   `smallestScreenSize`, `screenLayout`, and `density`.
 - `MainActivity` (a plain `BridgeActivity`) sets no orientation.
 
-Verified on Pixel 9 Pro Fold (Android 17): cover display portrait, inner
-display landscape, and unfold transition mid-session with layers on — the
-camera (3D tiles + globe) survives the resize without a black canvas or
-crash.
+Verified on Pixel 9 Pro Fold and Pixel 10 Pro Fold (Android 17): cover
+display portrait (with the bottom tab-shell phone layout), inner display
+landscape, and unfold transition mid-session with layers on — the camera (3D
+tiles + globe) survives the resize without a black canvas or crash. Launcher
+adaptive and legacy icons are generated from `public/logo.svg` on the `#0a0a0f`
+dark theme background via `node scripts/mobile/generate-icons.mjs`.
 
 ## Backend URL setup
 

@@ -132,9 +132,9 @@ across app restarts and never leaves the device.
 `--require-apk`; `android-37` is installed locally and the APK assembles.
 The manifest carries no orientation or aspect locks and the launcher activity
 resizes in place on unfold; the Pixel Fold device matrix is verified on
-Pixel 9 Pro Fold (Android 17): cover display portrait, inner display
-landscape, and unfold transition mid-session with layers on — the camera (3D
-tiles + globe) survives the resize. The WebGL2 fallback is probed and
+Pixel 9 Pro Fold and Pixel 10 Pro Fold (Android 17): cover display portrait,
+inner display landscape, and unfold transition mid-session with layers on — the
+camera (3D tiles + globe) survives the resize. The WebGL2 fallback is probed and
 tested but not yet wired into boot. Full details in `docs/MOBILE.md`.
  
 On-device heavy adapters (`src/mobile/adapters/`): `transitDirect.js`
