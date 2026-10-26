@@ -796,3 +796,30 @@ test('vessels live decodes ArrayBuffer frames', async () => {
   assert.equal(seen[0].mmsi, '2');
   source.dispose();
 });
+
+test('vessels live resolves MMSI from message body UserID when MetaData.MMSI is absent', async () => {
+  const { createVesselsLiveSource } = await import('./vesselsLive.js');
+  const seen = [];
+  let socket;
+  const source = createVesselsLiveSource({
+    getKey: async () => 'k',
+    createSocket: () => {
+      socket = { handlers: {}, send() {}, close() {} };
+      return socket;
+    },
+    onVessel: (v) => seen.push(v),
+  });
+  await source.connect({});
+  socket.onmessage({
+    data: JSON.stringify({
+      MessageType: 'PositionReport',
+      Message: { PositionReport: { UserID: 366999, Latitude: 30.2, Longitude: -97.7 } },
+      MetaData: { ShipName: 'BODY-ONLY' },
+    }),
+  });
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].mmsi, '366999');
+  assert.equal(source.getTrack('366999').length, 1);
+  source.dispose();
+});

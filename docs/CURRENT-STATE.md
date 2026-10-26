@@ -118,7 +118,7 @@ field. Existing whole-link size limits still apply.
 An experimental Android shell wraps the web build via Capacitor (app ID
 `ai.halfpixel.gev`, `capacitor.config.ts`, native project in `android/`).
 The mobile web seam is `src/mobile/`: `runtimeConfig.js` resolves the
-backend base (`GEV_API_BASE`, `https://host` only, fail-closed to
+backend base (`GEV_API_BASE`, `http(s)://host` only, fail-closed to
 same-origin), `keyStore.js` persists it through an injected
 Preferences-shaped store (real Capacitor Preferences on-device,
 `localStorage` mirror elsewhere), and `webglSupport.js` probes WebGL2 with

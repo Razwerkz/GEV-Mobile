@@ -5,7 +5,10 @@ import {
 } from '../../data/aisStreamAdapter.js';
 import { KEYED_HTTP_REFUSED, assertKeyedHttps } from '../governors.js';
 
-function aisEnvelopeMmsi(envelope, body = {}) {
+function aisEnvelopeMmsi(
+  envelope,
+  body = envelope?.Message?.[envelope?.MessageType] || {},
+) {
   const metadata = envelope?.MetaData || envelope?.Metadata || {};
   const raw = metadata.MMSI ?? body.UserID ?? body.UserId ?? body.Mmsi;
   if (raw === null || raw === undefined) return null;

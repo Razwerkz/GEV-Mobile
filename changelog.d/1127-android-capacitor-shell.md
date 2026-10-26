@@ -23,8 +23,9 @@
   required configuration, no baked defaults), and NOAA tiles validate
   time/bbox/size allowlists against nowCOAST WMS. Thin layer-boundary shapes
   select the direct sources only inside the Capacitor shell with no backend
-  configured; the web build keeps the same-origin proxies untouched.
+  configured; the web build keeps the same-origin proxies untouched
+  (Razwerkz, #1127).
 - Provider Settings destructive actions (vault row removal, server-key removal)
   confirm inline with a two-click arm/disarm control instead of the blocking
   `globalThis.confirm` dialog, so removal works the same on web and in the
-  Capacitor shell.
+  Capacitor shell (Razwerkz, #1127).
