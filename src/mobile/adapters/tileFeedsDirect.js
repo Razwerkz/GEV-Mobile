@@ -1,14 +1,16 @@
 import { MapillarySourceError } from '../../layers/streetLevel/providers/mapillary/source.js';
 import {
-  IMAGE_FIELDS,
   MAPILLARY_GRAPH_HOST,
-  NEAREST_LIMIT,
-  NEAREST_RADIUS_M,
   SEQUENCE_IMAGE_FIELDS,
   SEQUENCE_IMAGES_LIMIT,
 } from '../../layers/streetLevel/providers/mapillary/policy.js';
 import { fetchTerrainChunkWithRetry } from '../../data/terrainHeightsProxy.js';
 import { UPSTREAM_NOT_ALLOWED, isUpstreamRefusal } from '../sourcePolicy.js';
+
+const NEAREST_RADIUS_M = 50;
+const NEAREST_LIMIT = 8;
+const IMAGE_FIELDS =
+  'id,captured_at,compass_angle,computed_compass_angle,geometry,computed_geometry,computed_altitude,is_pano,sequence,thumb_256_url,creator,quality_score';
 
 /**
  * On-device tile feeds: Mapillary vector tiles + Graph lookups fetched

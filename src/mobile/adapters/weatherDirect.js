@@ -1,6 +1,12 @@
 import { normalizeRegionalWeather } from '../../data/regionalModel.js';
-import { WEATHER_PRODUCTS } from '../../layers/weather/source.js';
 import { UPSTREAM_NOT_ALLOWED, isUpstreamRefusal } from '../sourcePolicy.js';
+
+const WEATHER_PRODUCTS = Object.freeze([
+  'radar',
+  'clouds',
+  'clouds-regional',
+  'lightning',
+]);
 
 /**
  * Keyless on-device weather: Open-Meteo point forecasts plus honest

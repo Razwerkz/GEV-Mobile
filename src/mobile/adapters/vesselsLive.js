@@ -1,10 +1,17 @@
 import {
-  aisEnvelopeMmsi,
   classifyAisFailure,
   isRecognizedAisEnvelope,
   parseAisEnvelope,
 } from '../../data/aisStreamAdapter.js';
 import { KEYED_HTTP_REFUSED, assertKeyedHttps } from '../governors.js';
+
+function aisEnvelopeMmsi(envelope, body = {}) {
+  const metadata = envelope?.MetaData || envelope?.Metadata || {};
+  const raw = metadata.MMSI ?? body.UserID ?? body.UserId ?? body.Mmsi;
+  if (raw === null || raw === undefined) return null;
+  const text = String(raw).trim();
+  return text ? text : null;
+}
 
 /**
  * Keyed on-device vessels: an AISStream websocket client with a simplified

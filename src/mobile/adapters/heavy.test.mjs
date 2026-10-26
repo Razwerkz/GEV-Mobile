@@ -7,8 +7,9 @@ import {
   normalizeVehicleEntity,
   decodeVehiclePositions,
   GTFS_INCREMENTALITY_FULL_DATASET,
-  GTFS_INCREMENTALITY_DIFFERENTIAL,
 } from '../../data/gtfsRealtime.js';
+
+const GTFS_INCREMENTALITY_DIFFERENTIAL = 1;
 import {
   TRANSIT_FEED_REGISTRY,
   publicTransitCatalog,
